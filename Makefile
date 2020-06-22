@@ -16,13 +16,13 @@ GOGET=$(GOCMD) get
 VERSION=$(shell git describe --tags --always --long --dirty)
 
 ### Executable names
-EXEC_NAME=Ikemen_GO
+BINARY_NAME=Ikemen_GO
 # Executable name for Windows
-EXEC_WIN 	=$(EXEC_NAME)_win.exe
+BINARY_WIN=$(BINARY_NAME)_win.exe
 # Executable name for Linux
-EXEC_UNIX=$(EXEC_NAME)_linux# _unix
+BINARY_UNIX=$(BINARY_NAME)_linux
 # Executable name for Darwin
-EXEC_DARWIN=$(EXEC_NAME)_darwin
+BINARY_DARWIN=$(BINARY_NAME)_darwin
 
 .PHONY: all clean rm_all
 
@@ -31,23 +31,18 @@ help: ## Show this help message; Display available commands in terminal
 
 all: linux windows darwin ## !!UNFINISHED!! Build for all platforms 
 
-linux: deps ## Build for Linux platform. (x86_64) 
-	mkdir -p ./bin
-	mkdir -p ./script
-	env GOOS=linux GOARCH=amd64 $(GOBUILD) -o ./bin/$(EXEC_UNIX) ./src
-	chmod +x ./bin/$(EXEC_UNIX)
-	cp ./build/Ikemen_GO.command ./bin/Ikemen_GO.command
-	cp -r ./script/ ./bin/script/
-	cp -r ./data/ ./bin/data/
+linux: linux_bin ## Build for Linux platform. (x86_64) 
 	cp -a ./bin/* .
 	rm -rf ./bin
 
 linux_bin: deps ## Build for Linux platform, and keep it within ./bin/
 	mkdir -p ./bin/
 	mkdir -p ./script/
-	env GOOS=linux GOARCH=amd64 $(GOBUILD) -o ./bin/$(EXEC_UNIX) ./src
-	chmod +x ./bin/$(EXEC_UNIX)
+	env GOOS=linux GOARCH=amd64 $(GOBUILD) -o ./bin/$(BINARY_UNIX) ./src
+	chmod +x ./bin/$(BINARY_UNIX)
 	cp ./build/Ikemen_GO.command ./bin/Ikemen_GO.command
+	cp -r ./script/ ./bin/script/
+	cp -r ./data/ ./bin/data/
 
 
 linux_HOME: # linux ## !!UNFINISHED!! Install everything under the $HOME directory 
@@ -60,8 +55,8 @@ darwin: ## !!UNFINISHED!! Build for Darwin platform. (x86_64)
 
 #$(LINUX): deps
 	#mkdir -p ./bin
-	#env GOOS=linux GOARCH=amd64 $(GOBUILD) -o ./bin/$(EXEC_UNIX) ./src
-	#chmod +x ./bin/$(EXEC_UNIX)
+	#env GOOS=linux GOARCH=amd64 $(GOBUILD) -o ./bin/$(BINARY_UNIX) ./src
+	#chmod +x ./bin/$(BINARY_UNIX)
 	#cp ./build/Ikemen_GO.command ./bin/Ikemen_GO.command
 	#cp -r ./script/ ./bin/script/
 	#cp -r ./data/ ./bin/data/
@@ -69,11 +64,35 @@ darwin: ## !!UNFINISHED!! Build for Darwin platform. (x86_64)
 # ($WINDOWS):
 #	env 
 
-appveyor_docker_build: ## Use a docker image to build for Windows/Linux/OS X. ## Dependencies are Ikemen_GO_plus source code, and docker.
+ ## Dependencies are Ikemen_GO_plus source code, and docker.
+appveyor_docker_build: ## !!UNFINISHED!! Use a docker image to build for Windows/Linux/OS X.
 	if [ ! -d ./bin ]; then\
 		mkdir bin;\
 	fi
+	@echo "------------------------------------------------------------"
+	docker run --rm -e OS=linux -v $(pwd):/code -i windblade/ikemen-dev:latest bash -c 'cd /code/build  && bash -x get.sh'
 
+	@echo "------------------------------------------------------------"
+	@echo "Building linux binary..."
+	docker run --rm -e OS=linux -v $(pwd):/code -i windblade/ikemen-dev:latest bash -c 'cd /code/build && bash -x build_crossplatform.sh' 
+
+	@echo "------------------------------------------------------------"
+	@echo "Building mac binary..."
+	docker run --rm -e OS=mac -v $(pwd):/code -i windblade/ikemen-dev:latest bash -c 'cd /code/build && bash -x build_crossplatform.sh' 
+
+	@echo "------------------------------------------------------------"
+	@echo "Building windows x86 binary..."
+	docker run --rm -e OS=windows32 -v $(pwd):/code -i windblade/ikemen-dev:latest bash -c 'cd /code/build && bash -x build_crossplatform.sh' 
+
+	# We copy the Windres files so we can have a icon files
+	cp 'windres/Ikemen_Cylia_x64.syso' 'src/Ikemen_Cylia_x64.syso'
+
+	echo "------------------------------------------------------------"
+	echo "Building windows x64 binary..."
+	docker run --rm -e OS=windows -v $(pwd):/code -i windblade/ikemen-dev:latest bash -c 'cd /code/build && bash -x build_crossplatform.sh' 
+
+install: ## !!UNFINISHED!! Install (?)
+	@echo "Nil"
 
 deps: ## Get the necessary dependencies.
 	@echo "Getting dependencies.."
@@ -97,28 +116,17 @@ deps: ## Get the necessary dependencies.
 version: ## Display version of IKEMEN (using git tags, but.. not annotated tags?)
 	@echo $(VERSION)
 
-clean: rm_exec ## Cleans up (only the binaries).
-	rm -rf ./save/
+clean: rm_exec ## Cleans up (removes binaries from root directory, and removes the ./bin directory).
 
-rm_all: ## Removes all things, i.e. binaries, .mod and .sum files, the bin, src, go, external, windres directories, etc. Do NOT use this for cleaning up. (Actually, do NOT touch this.)
-	rm_exec
-	rm_mod
-	rm_git
-	rm_dir
+rm_all: rm_exec rm_mod rm_git rm_dir ## Removes all things, i.e. binaries, .mod and .sum files, the bin, src, go, external, windres directories, etc. Do NOT use this for cleaning up. (Actually, do NOT touch this at all.)
 
 # Remove binaries
 rm_exec:
-	rm -f ./$(EXEC_UNIX)
-	rm -f ./$(EXEC_NAME).command
-	rm -f ./$(EXEC_DARWIN)
-	rm -f ./$(EXEC_WIN)
-
-# Remove binaries--from within ./bin/
-rm_exec_bin:
-	rm -f ./bin/$(EXEC_UNIX)/
-	rm -f ./bin/$(EXEC_NAME).command/
-	rm -f ./bin/$(EXEC_DARWIN)/
-	rm -f ./bin/$(EXEC_WIN)/
+	rm -rf ./bin
+	rm -f ./$(BINARY_UNIX)
+	rm -f ./$(BINARY_NAME).command
+	rm -f ./$(BINARY_DARWIN)
+	rm -f ./$(BINARY_WIN)
 
 # Remove .mod and .sum
 rm_mod:
@@ -132,11 +140,12 @@ rm_git:
 
 # Remove directories
 rm_dir:
-	rm -rf ./.git/
-	rm -rf ./go/
-	rm -rf ./src/
-	rm -rf ./bin/
-	rm -rf ./windres/
-	rm -rf ./external/
-	rm -rf ./script/
+	rm -rf ./.git
+	rm -rf ./go
+	rm -rf ./src
+	rm -rf ./bin
+	rm -rf ./windres
+	rm -rf ./external
+	rm -rf ./script
+	rm -rf ./save
 	#rm -rf build
