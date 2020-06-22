@@ -1,4 +1,8 @@
 #!/bin/sh
+
+##?!
+
+
 cd ..
 export GOPATH=$PWD/go
 export CGO_ENABLED=1
