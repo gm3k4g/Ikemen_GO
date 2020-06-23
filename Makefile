@@ -35,6 +35,9 @@ linux: linux_bin ## Build for Linux platform. (x86_64)
 	cp -a ./bin/* .
 	rm -rf ./bin
 
+# build.sh
+#export GOPATH=$PWD/go
+#export CGO_ENABLED=1
 linux_bin: deps ## Build for Linux platform, and keep it within ./bin/
 	mkdir -p ./bin/
 	mkdir -p ./script/
@@ -64,8 +67,34 @@ darwin: ## !!UNFINISHED!! Build for Darwin platform. (x86_64)
 # ($WINDOWS):
 #	env 
 
+# docker_build.sh
+
+#TODO: put everything under seperate directives
+
  ## Dependencies are Ikemen_GO_plus source code, and docker.
-appveyor_docker_build: ## !!UNFINISHED!! Use a docker image to build for Windows/Linux/OS X.
+docker_build: ## !!UNFINISHED!! Use a docker image to build for Windows/Linux/OS X.
+	if [ ! -d ./bin ]; then\
+		mkdir bin;\
+	fi
+
+	@echo "------------------------------------------------------------"
+	docker run --rm -e OS=linux -v $(pwd):/code -it windblade/ikemen-dev:latest bash -c 'cd /code/build  && bash -x get.sh'
+
+	@echo "------------------------------------------------------------"
+	echo "Building linux binary..."
+	docker run --rm -e OS=linux -v $(pwd):/code -it windblade/ikemen-dev:latest bash -c 'cd /code/build  && bash -x build_crossplatform.sh' 
+
+	@echo "------------------------------------------------------------"
+	@echo "Building windows binary..."
+	docker run --rm -e OS=windows -v $(pwd):/code -it windblade/ikemen-dev:latest bash -c 'cd /code/build  && bash -x build_crossplatform.sh' 
+
+	@echo "------------------------------------------------------------"
+	@echo "Building mac binary..."
+	docker run --rm -e OS=mac -v $(pwd):/code -it windblade/ikemen-dev:latest bash -c 'cd /code/build && bash -x build_crossplatform.sh' 
+
+# appveyor_docker_build.sh
+## Dependencies are Ikemen_GO_plus source code, and docker.
+appveyor_docker_build: ## !!UNFINISHED!! Use a docker image to build for Windows/Linux/OS X, with appveyor
 	if [ ! -d ./bin ]; then\
 		mkdir bin;\
 	fi
@@ -94,6 +123,9 @@ appveyor_docker_build: ## !!UNFINISHED!! Use a docker image to build for Windows
 install: ## !!UNFINISHED!! Install (?)
 	@echo "Nil"
 
+# get.sh
+#export GOPATH=$PWD/go
+#export CGO_ENABLED=1
 deps: ## Get the necessary dependencies.
 	@echo "Getting dependencies.."
 	if [ ! -f ./go.mod ]; then \
@@ -117,12 +149,12 @@ version: ## Display version of IKEMEN (using git tags, but.. not annotated tags?
 	@echo $(VERSION)
 
 clean: rm_exec ## Cleans up (removes binaries from root directory, and removes the ./bin directory).
-
-rm_all: rm_exec rm_mod rm_git rm_dir ## Removes all things, i.e. binaries, .mod and .sum files, the bin, src, go, external, windres directories, etc. Do NOT use this for cleaning up. (Actually, do NOT touch this at all.)
-
-# Remove binaries
-rm_exec:
 	rm -rf ./bin
+
+rm_exec_ready: rm_mod rm_git rm_dir ## Removes all 'unnecessary' things, i.e. .mod and .sum files, src, go, external, windres directories, etc. Do NOT use this for cleaning up. (Actually, do NOT touch this at all.)
+
+# Remove binaries in root directory
+rm_exec:
 	rm -f ./$(BINARY_UNIX)
 	rm -f ./$(BINARY_NAME).command
 	rm -f ./$(BINARY_DARWIN)
