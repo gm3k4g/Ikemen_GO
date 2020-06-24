@@ -5,6 +5,10 @@
 
 # Binaries
 bin/*
+# Root directory binaries
+Ikemen_GO_linux
+Ikemen_GO_windows.exe
+Ikemen_GO_darwin
 
 # Compilation files
 go/*
