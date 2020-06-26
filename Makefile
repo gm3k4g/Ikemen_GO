@@ -18,11 +18,13 @@ VERSION=$(shell git describe --tags --always --long --dirty)
 ### Executable names
 BINARY_NAME=Ikemen_GO
 # Executable name for Windows
-BINARY_WIN=$(BINARY_NAME)_win.exe
+BINARY_WIN32=$(BINARY_NAME)_Win_x86.exe
+# Executable name for Windows 64-bit
+BINARY_WIN64=$(BINARY_NAME)_Win_x64.exe
 # Executable name for Linux
 BINARY_UNIX=$(BINARY_NAME)_linux
-# Executable name for Darwin
-BINARY_DARWIN=$(BINARY_NAME)_darwin
+# Executable name for Mac
+BINARY_DARWIN=$(BINARY_NAME)_mac
 
 .PHONY: all clean rm_all
 
@@ -31,27 +33,50 @@ help: ## Show this help message; Display available commands in terminal
 
 all: linux windows darwin ## !!UNFINISHED!! Build for all platforms 
 
-linux: linux_bin # Build for Linux platform. (x86_64) 
+linux_nobin: linux # Build for Linux platform. The binaries go in the root directory. (x86_64) 
 	cp -a ./bin/* .
 	rm -rf ./bin
 
 # build.sh
 #export GOPATH=$PWD/go
 #export CGO_ENABLED=1
-linux_bin: deps_unix ## Build for Linux platform. (x86_64, and keep it within ./bin/)
+linux: deps_unix ikemen_cmd_unix ## Build for Linux platform. The binaries go in the bin directory. (x86_64)
 	mkdir -p ./bin/
 	mkdir -p ./script/
-	env GOOS=linux GOARCH=amd64 $(GOBUILD) -o ./bin/$(BINARY_UNIX) ./src
+	env GOOS=linux GOARCH=amd64 $(GOBUILD) -o ./bin/$(BINARY_UNIX) ./src # \
+#	-trimpath \
+#	-buildmode=pie \
+#	-mod=readonly \
+#	-modcacherw \
+#	-ldflags "-extldflags \"${LDFLAGS}\"" \
+#	.
+
 	chmod +x ./bin/$(BINARY_UNIX)
 	#cp ./build/Ikemen_GO.command ./bin/Ikemen_GO.command
-	cp ./Ikemen_GO.command ./bin/Ikemen_GO.command
+	mv ./Ikemen_GO.command ./bin/Ikemen_GO.command
 	cp -r ./script/ ./bin/script/
 	cp -r ./data/ ./bin/data/
 
 
 linux_HOME: # linux # !!UNFINISHED!! Install everything under the $HOME directory 
 
-windows: ## !!UNFINISHED!! Build for Windows platform. (x86_64) 
+windows_32: deps_win ## !!UNFINISHED!! Build for Windows platform. The binaries go in the bin directory.(x86)
+
+		#export GOOS=windows
+		#export GOARCH=386
+	    #export CC=i686-w64-mingw32-gcc
+	    #export CXX=i686-w64-mingw32-g++
+	    #BINARY_NAME="Ikemen_GO_Win_x86.exe";
+		#IS_WINDOWS="1"	
+		$(GOBUILD) -ldflags "-H windowsgui" -o ./bin/$(BINARY_WIN32) ./src
+
+windows_64: deps_win ## !!UNFINISHED!! Build for Windows platform. The binaries go in the bin directory. (x86_64)
+	#export GOOS=windows
+	#export CC=x86_64-w64-mingw32-gcc
+	#export CXX=x86_64-w64-mingw32-g++
+	#BINARY_NAME="Ikemen_GO_Win_x64.exe";
+	#IS_WINDOWS="1"
+	#
 	#@echo off
 	#cd ..
 	#set GOPATH=%cd%/go
@@ -70,14 +95,24 @@ windows: ## !!UNFINISHED!! Build for Windows platform. (x86_64)
 	echo Building Ikemen GO...
 	echo.
 
-	go build -ldflags -H=windowsgui -o ./bin/Ikemen_GO.exe ./src 
+	#go build -ldflags -H windowsgui -o ./bin/$BINARY_NAME ./src
+	#go build -ldflags -H=windowsgui -o ./bin/$(BINARY_WIN64) ./src 
+	$(GOBUILD) -ldflags -H=windowsgui -o ./bin/$(BINARY_WIN64) ./src
 
 	echo.
 	pause
 
-darwin: ## !!UNFINISHED!! Build for Darwin platform. (x86_64) 
+darwin: ## !!UNFINISHED!! Build for Darwin platform. The binaries go in the bin directory. (x86_64)
 	#$(DARWIN)
 
+#"mac") 
+#export GOOS=darwin
+#export CC=o64-clang 
+#export CXX=o64-clang++
+#BINARY_NAME="Ikemen_GO_mac"; 
+
+#go build -o ./bin/$BINARY_NAME ./src
+#$(GOBUILD) -o ./bin/$(BINARY_UNIX) ./src
 #$(LINUX): deps_unix
 	#mkdir -p ./bin
 	#env GOOS=linux GOARCH=amd64 $(GOBUILD) -o ./bin/$(BINARY_UNIX) ./src
@@ -90,14 +125,11 @@ darwin: ## !!UNFINISHED!! Build for Darwin platform. (x86_64)
 #	env 
 
 # docker_build.sh
-
 #TODO: put everything under seperate directives
 
  ## Dependencies are Ikemen_GO_plus source code, and docker.
 docker: ## !!UNFINISHED!! Use a docker image to build for Windows/Linux/OS X.
-	if [ ! -d ./bin ]; then\
-		mkdir bin;\
-	fi
+	mkdir -p ./bin
 
 	@echo "------------------------------------------------------------"
 	docker run --rm -e OS=linux -v $(pwd):/code -it windblade/ikemen-dev:latest bash -c 'cd /code/build  && bash -x get.sh'
@@ -147,6 +179,8 @@ appveyor_docker: ## !!UNFINISHED!! Use a docker image to build for Windows/Linux
 # TODO
 appveyor_pack_release: #
 	curl -SLO https://kcat.strangesoft.net/openal-binaries/openal-soft-1.20.0-bin.zip
+	mkdir -p ./bin
+
 	7z x ./openal-soft-1.20.0-bin.zip
 	mv openal-soft-1.20.0-bin AL_Temp_416840
 	mv ./AL_Temp_416840/bin/Win64/soft_oal.dll ./bin/soft_oal_x64.dll
@@ -154,10 +188,13 @@ appveyor_pack_release: #
 	rm -rf AL_Temp_416840
 	rm openal-soft-1.20.0-bin.zip
 
-	cp ./build/Ikemen_GO.command ./bin/Ikemen_GO.command 
+	#cp ./build/Ikemen_GO.command ./bin/Ikemen_GO.command 
+	cp ./Ikemen_GO.command ./bin/Ikemen_GO.command 
 	cp ./License.txt ./bin/License.txt
 
-	git clone $1
+	if [ ! -d ./Ikemen_GO-Elecbyte-Screenpack ]; then\
+		git clone https://github.com/Windblade-GR01/Ikemen_GO-Elecbyte-Screenpack.git;\
+	fi
 	mv ./Ikemen_GO-Elecbyte-Screenpack/chars ./bin/chars
 	mv ./Ikemen_GO-Elecbyte-Screenpack/data ./bin/data
 	mv ./Ikemen_GO-Elecbyte-Screenpack/font ./bin/font
@@ -169,13 +206,14 @@ appveyor_pack_release: #
 
 	cd bin
 
-	mkdir save
-	mkdir sound
-	mkdir save/replays
+	mkdir -p ./bin/save
+	mkdir -p ./bin/sound
+	mkdir -p ./bin/save/replays
 
-	mv ./soft_oal_x86.dll ./OpenAL32.dll
-	mv ./Ikemen_GO_Win_x86.exe ./Ikemen_GO.exe
+	mv ./bin/soft_oal_x86.dll ./bin/OpenAL32.dll
+	mv ./bin/Ikemen_GO_Win_x86.exe ./bin/Ikemen_GO.exe
 
+	# change everything else below to be within ./bin
 	7z a -tzip ./release/Ikemen_GO_Win_x86.zip ./chars ./data ./font ./save ./external sound ./stages License.txt 'Ikemen_GO.exe' 'OpenAL32.dll'
 	7z a -tzip ./release/Ikemen_GO_Win_x86_Binaries_only.zip ./external License.txt 'Ikemen_GO.exe' 'OpenAL32.dll'
 
@@ -197,8 +235,51 @@ appveyor_pack_release: #
 	7z a -tzip ./release/Ikemen_GO_Linux.zip ./chars ./data ./font ./save ./external sound ./stages License.txt Ikemen_GO.command Ikemen_GO_linux
 	7z a -tzip ./release/Ikemen_GO_Linux_Binaries_only.zip ./external License.txt Ikemen_GO.command Ikemen_GO_linux
 
+# pack_release.sh:
+# Package binaries only(?) into archives
+# TODO
+pack_release: # 
+	curl -SLO https://kcat.strangesoft.net/openal-binaries/openal-soft-1.20.0-bin.zip
+	mkdir -p ./bin
+
+	7z x ./openal-soft-1.20.0-bin.zip
+	mv openal-soft-1.20.0-bin AL_Temp_416840
+	mv ./AL_Temp_416840/bin/Win64/soft_oal.dll ./bin/soft_oal_x64.dll
+	mv ./AL_Temp_416840/bin/Win32/soft_oal.dll ./bin/soft_oal_x86.dll
+	rm -rf AL_Temp_416840
+	rm openal-soft-1.20.0-bin.zip
+
+	cd bin
+	mkdir -p release
+
+	7z a -tzip ./release/Ikemen_GO_Win_x86.zip ../script ../data 'Ikemen_GO_Win_x86.exe' 'soft_oal_x86.dll'
+	7z rn ./release/Ikemen_GO_Win_x86.zip 'Ikemen_GO_Win_x86.exe' 'Ikemen_GO.exe'
+	7z rn ./release/Ikemen_GO_Win_x86.zip 'soft_oal_x86.dll' 'OpenAL32.dll'
+
+	7z a -tzip ./release/Ikemen_GO_Win_x64.zip ../script ../data 'Ikemen_GO_Win_x64.exe' 'soft_oal_x64.dll'
+	7z rn ./release/Ikemen_GO_Win_x64.zip 'Ikemen_GO_Win_x64.exe' 'Ikemen_GO.exe'
+	7z rn ./release/Ikemen_GO_Win_x64.zip 'soft_oal_x64.dll' 'OpenAL32.dll'
+
+	7z a -tzip ./release/Ikemen_GO_Mac.zip ../script ../data Ikemen_GO.command Ikemen_GO_mac
+	7z a -tzip ./release/Ikemen_GO_Linux.zip ../script ../data Ikemen_GO.command Ikemen_GO_linux
+
 install: ## !!UNFINISHED!! Install (?)
 	@echo "Nil"
+
+# build_crossplatform.sh
+# TODO
+crossplatform: #
+	#export GOPATH=$PWD/go
+	#export CGO_ENABLED=1
+	IS_WINDOWS="0"
+
+	if [ "$IS_WINDOWS" = "1" ]; then
+		go build -ldflags "-H windowsgui" -o ./bin/$BINARY_NAME ./src
+	else
+		go build -o ./bin/$BINARY_NAME ./src
+	fi
+
+	chmod +x ./bin/$BINARY_NAME
 
 # get.sh
 #export GOPATH=$PWD/go
@@ -221,81 +302,6 @@ deps_unix: # Get the necessary dependencies (linux)
 	$(GOGET) -u github.com/pkg/errors
 	$(GOGET) -u github.com/jfreymuth/oggvorbis
 	$(GOGET) -u github.com/sqweek/dialog
-
-# pack_release.sh
-# TODO
-pack_release: # 
-	curl -SLO https://kcat.strangesoft.net/openal-binaries/openal-soft-1.20.0-bin.zip
-	7z x ./openal-soft-1.20.0-bin.zip
-	mv openal-soft-1.20.0-bin AL_Temp_416840
-	mv ./AL_Temp_416840/bin/Win64/soft_oal.dll ./bin/soft_oal_x64.dll
-	mv ./AL_Temp_416840/bin/Win32/soft_oal.dll ./bin/soft_oal_x86.dll
-	rm -rf AL_Temp_416840
-	rm openal-soft-1.20.0-bin.zip
-
-	cd bin
-	mkdir release
-
-	7z a -tzip ./release/Ikemen_GO_Win_x86.zip ../script ../data 'Ikemen_GO_Win_x86.exe' 'soft_oal_x86.dll'
-	7z rn ./release/Ikemen_GO_Win_x86.zip 'Ikemen_GO_Win_x86.exe' 'Ikemen_GO.exe'
-	7z rn ./release/Ikemen_GO_Win_x86.zip 'soft_oal_x86.dll' 'OpenAL32.dll'
-
-	7z a -tzip ./release/Ikemen_GO_Win_x64.zip ../script ../data 'Ikemen_GO_Win_x64.exe' 'soft_oal_x64.dll'
-	7z rn ./release/Ikemen_GO_Win_x64.zip 'Ikemen_GO_Win_x64.exe' 'Ikemen_GO.exe'
-	7z rn ./release/Ikemen_GO_Win_x64.zip 'soft_oal_x64.dll' 'OpenAL32.dll'
-
-	7z a -tzip ./release/Ikemen_GO_Mac.zip ../script ../data Ikemen_GO.command Ikemen_GO_mac
-	7z a -tzip ./release/Ikemen_GO_Linux.zip ../script ../data Ikemen_GO.command Ikemen_GO_linux
-
-# build_crossplatform.sh
-# TODO
-crossplatform: #
-	#export GOPATH=$PWD/go
-	#export CGO_ENABLED=1
-	IS_WINDOWS="0"
-
-	if [ -n "$OS" ];    then 
-	    case "$OS" in
-	    "windows")
-	        export GOOS=windows
-	        export CC=x86_64-w64-mingw32-gcc
-	        export CXX=x86_64-w64-mingw32-g++
-	        BINARY_NAME="Ikemen_GO_Win_x64.exe";
-			IS_WINDOWS="1"
-
-	        ;;
-	    "mac") 
-	        export GOOS=darwin
-	        export CC=o64-clang 
-	        export CXX=o64-clang++
-	        BINARY_NAME="Ikemen_GO_mac"; 
-			
-	        ;;
-	    "linux") 
-	        BINARY_NAME="Ikemen_GO_linux"; 
-			
-	        ;;
-		"windows32")
-		    export GOOS=windows
-			export GOARCH=386
-	        export CC=i686-w64-mingw32-gcc
-	        export CXX=i686-w64-mingw32-g++
-	        BINARY_NAME="Ikemen_GO_Win_x86.exe";
-			IS_WINDOWS="1"		
-	        
-			;;
-	    esac 
-	else 
-	    BINARY_NAME="Ikemen_GO";  
-	fi;
-
-	if [ "$IS_WINDOWS" = "1" ]; then
-		go build -ldflags "-H windowsgui" -o ./bin/$BINARY_NAME ./src
-	else
-		go build -o ./bin/$BINARY_NAME ./src
-	fi
-
-	chmod +x ./bin/$BINARY_NAME
 
 
 # get.cmd
@@ -332,20 +338,40 @@ deps_win: # Get necessary dependencies (windows)
 	echo. 
 	pause
 
+# Using 'echo', create the file `Ikemen_GO.command` in the current directory
+ikemen_cmd_unix: #creates Ikemen_GO.command file
+	#if [ ! -f ./$(BINARY_NAME).command ]; then\
+		touch ./$(BINARY_NAME).command #;\
+		echo -n -e "#!/bin/bash\
+		\rcd \$$(dirname \$$0)\n\
+		\rcase \"\$$OSTYPE\" in\
+		    \r\tdarwin*) #echo \"It's a Mac!!\" ;\
+		    \r\t\tchmod +x Ikemen_GO_mac\
+		    \r\t\t./Ikemen_GO_mac\
+		        \r\t\t;;\
+		    \r\tlinux*)\
+		        \r\t\tchmod +x Ikemen_GO_linux\
+		        \r\t\t./Ikemen_GO_linux\
+		     \r\t ;;\
+		    \r\t*) echo \"System not recognized\"; exit 1 ;;\
+		\resac" > ./$(BINARY_NAME).command #;\
+	#fi
+
 version: ## Display version of IKEMEN (using git tags, but.. not annotated tags?)
 	@echo $(VERSION)
 
-clean: rm_exec ## Cleans up (removes binaries from root directory, and removes the ./bin directory).
+clean: rm_exec ## Cleans up (removes binaries from root directory, and removes the ./bin and ./release directories).
 	rm -rf ./bin
+	rm -rf ./release
 
-rm_exec_ready: rm_mod rm_git rm_dir # Removes all 'unnecessary' things, i.e. .mod and .sum files, src, go, external, windres directories, etc. Do NOT use this for cleaning up. (Actually, do NOT touch this at all.)
+rm_everything: rm_mod rm_git rm_dir # Removes all 'unnecessary' things, i.e. .mod and .sum files, src, go, external, windres directories, etc. Do NOT use this for cleaning up. (Actually, do NOT touch this at all.)
 
 # Remove binaries in root directory
 rm_exec:
-	rm -f ./$(BINARY_UNIX)q
+	rm -f ./$(BINARY_UNIX)
 	#rm -f ./$(BINARY_NAME).command
 	rm -f ./$(BINARY_DARWIN)
-	rm -f ./$(BINARY_WIN)
+	rm -f ./$(BINARY_WIN64)
 	rm -rf ./save
 # Remove .mod and .sum
 rm_mod:
